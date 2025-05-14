@@ -1,0 +1,107 @@
+---
+title: "EDA with R"
+output:
+  github_document:
+    pandoc_args: ["--wrap=none"]
+always_allow_html: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(nycflights13)
+```
+
+# 10.3.3 Exercises – Variation
+
+## 1. Explore the distribution of the `price` variable in the `diamonds` dataset. What do you learn? Think about a model that might explain the distribution and sketch it.
+
+```{r price-histogram}
+ggplot(diamonds, aes(x = price)) + 
+  geom_histogram(binwidth = 500, fill = "steelblue") +
+  labs(title = "Distribution of Diamond Prices",
+       x = "Price (USD)",
+       y = "Count")
+```
+
+We see that the distribution is right-skewed, with many diamonds priced under $5,000 and fewer high-end outliers. A log-normal model might explain this kind of distribution since prices cannot be negative and tend to have multiplicative effects.
+
+## 2. Explore the distribution of `carat`, `x`, `y`, and `z`. What do you learn?
+
+```{r dimensions-histograms}
+diamonds %>%
+  select(carat, x, y, z) %>%
+  pivot_longer(everything(), names_to = "dimension", values_to = "value") %>%
+  ggplot(aes(x = value)) +
+  geom_histogram(bins = 100, fill = "skyblue") +
+  facet_wrap(~dimension, scales = "free") +
+  labs(title = "Distributions of Diamond Dimensions")
+```
+
+These variables also show right-skewed distributions. There are likely data entry issues with extreme values, especially in `x`, `y`, and `z`, suggesting some diamonds may have invalid measurements.
+
+## 3. Use `coord_cartesian()` to zoom in on unusual values in `x`, `y`, and `z`.
+
+```{r zoom-outliers}
+ggplot(diamonds, aes(x = x)) +
+  geom_histogram(bins = 100, fill = "salmon") +
+  coord_cartesian(xlim = c(0, 10)) +
+  labs(title = "Zoomed Distribution of x Dimension")
+```
+
+```{r zoom-outliers-2}
+ggplot(diamonds, aes(x = y)) +
+  geom_histogram(bins = 100, fill = "lightgreen") +
+  coord_cartesian(xlim = c(0, 10)) +
+  labs(title = "Zoomed Distribution of y Dimension")
+```
+
+```{r zoom-outliers-3}
+ggplot(diamonds, aes(x = z)) +
+  geom_histogram(bins = 100, fill = "lightblue") +
+  coord_cartesian(xlim = c(0, 10)) +
+  labs(title = "Zoomed Distribution of z Dimension")
+```
+
+We observe that most values cluster between 3 and 8, but a few are near zero or too large. These outliers could be removed or imputed for better model performance.
+
+## 4. What happens to a histogram of `x` if you use `xlim()` instead of `coord_cartesian()`?
+
+```{r xlim-demo}
+ggplot(diamonds, aes(x = x)) +
+  geom_histogram(bins = 100, fill = "purple") +
+  xlim(0, 10)
+```
+
+Using `xlim()` **removes data** outside the range, while `coord_cartesian()` only zooms in **without discarding data**. This can lead to misleading summary statistics or bar heights.
+
+# 10.4.1 Exercises – Missing Values
+
+## 1. What happens to `na.rm = TRUE` in `mean()` when there are no missing values?
+
+```{r no-missing-mean}
+mean(c(1, 2, 3, 4), na.rm = TRUE)
+```
+
+It works fine. `na.rm = TRUE` has no effect if there are no missing values — it's safe to always include it.
+
+## 2. What happens if you omit `na.rm = TRUE` when missing values are present?
+
+```{r with-na}
+mean(c(1, 2, NA, 4))  # returns NA
+mean(c(1, 2, NA, 4), na.rm = TRUE)  # returns mean of non-missing values
+```
+
+Without `na.rm = TRUE`, `mean()` returns `NA` if any missing values are present. Always using `na.rm = TRUE` is a good habit.
+
+## 3. Summarize the `flights` dataset to find where missing values occur. Which variables have the most missing values?
+
+```{r missing-summary}
+flights %>% 
+  summarise(across(everything(), ~sum(is.na(.)))) %>%
+  pivot_longer(everything(), names_to = "variable", values_to = "missing_count") %>%
+  arrange(desc(missing_count)) %>%
+  filter(missing_count > 0)
+```
+
+The variables `dep_time`, `dep_delay`, `arr_time`, and `arr_delay` have the most missing values. These likely correspond to cancelled flights, where times were not recorded.
